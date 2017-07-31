@@ -1,7 +1,7 @@
 <template>
-  <scroll class="listview" :data="data">
+  <scroll class="listview" :data="data" ref="listview">
     <ul>
-      <li class="list-group" v-for="(group, Index) in data" :key="Index">
+      <li class="list-group" v-for="(group, Index) in data" :key="Index" ref="listGroup">
         <h2 class="list-group-title">{{group.title}}</h2>
         <ul>
           <li class="list-group-item" v-for="(item, index) in group.items" :key="index">
@@ -11,17 +11,56 @@
         </ul>
       </li>
     </ul>
+    <div class="list-shortcut" @touchstart.stop.prevent="onShortcutTouchStart" @touchmove.syop.prevent="onShortsutTouchMove">
+      <ul>
+        <li class="item" v-for="(item, index) in shortcutList" :key="index" :data-index="index">
+          {{item}}
+        </li>
+      </ul>
+    </div>
   </scroll>
 </template>
 
 <script>
 import Scroll from 'base/scroll/scroll'
+import {getData} from 'common/js/dom'
+
+const ANCHOR_HEIGHT = 18
 
 export default {
+  created () {
+    this.touch = {}
+  },
   props: {
     data: {
       type: Array,
       default: []
+    }
+  },
+  computed: {
+    shortcutList () {
+      return this.data.map((group) => {
+        return group.title.substr(0, 1)
+      })
+    }
+  },
+  methods: {
+    onShortcutTouchStart (e) {
+      let anchorIndex = getData(e.target, 'index')
+      let firstTouch = e.touches[0]
+      this.touch.y1 = firstTouch.pageY
+      this.touch.ahchorIndex = anchorIndex
+      this._scrollTo(anchorIndex)
+    },
+    onShortsutTouchMove (e) {
+      let firstTouch = e.touches[0]
+      this.touch.y2 = firstTouch.pageY
+      let delta = (this.touch.y2 - this.touch.y1) / ANCHOR_HEIGHT | 0
+      let anchorIndex = this.touch.anchorIndex + delta
+      this._scrollTo(anchorIndex)
+    },
+    _scrollTo (index) {
+      this.$refs.listview.scrollToElement(this.$refs.listGroup[index], 0)
     }
   },
   components: {
@@ -35,7 +74,7 @@ export default {
    @import "~common/stylus/variable"
 
   .listview
-    position: absolute
+    position: relative
     width: 100%
     height: 100%
     overflow: hidden
@@ -61,4 +100,38 @@ export default {
         margin-left: 20px
         color: $color-text-l
         font-size: $font-size-medium
+    .list-shortcut
+      position: absolute
+      z-index: 2
+      right: 0
+      top: 50%
+      transform: translateY(-50%)
+      width: 20px
+      padding: 20px 0
+      border-radius: 10px
+      text-align: center
+      background: $color-background-d
+      font-family: Helvetica
+      .item
+        padding: 3px
+        line-height: 1
+        color: $color-text-l
+        font-size: $font-size-small
+        &.current
+          color: $color-theme
+      .list-fixed
+        position: absolute
+        top: 0
+        left: 0
+        width: 100%
+        .fixed-title
+          height: 30px
+          line-height: 30px
+          padding-left: 20px
+          font-size: $font-size-small
+          color: $color-text-l
+          background: $color-highlight-background
+      .loading-container
+        position: absolute
+        width: 100%
 </style>
