@@ -24,14 +24,22 @@
         </li>
       </ul>
     </div>
+    <div class="list-fixed" v-show="fixedTitle" ref="fixed">
+      <h1 class="fixed-title">{{fixedTitle}}</h1>
+    </div>
+    <div class="loading-container" v-show="!data.length">
+      <loading></loading>
+    </div>
   </scroll>
 </template>
 
 <script>
 import Scroll from 'base/scroll/scroll'
 import {getData} from 'common/js/dom'
+import Loading from 'base/loading/loading'
 
 const ANCHOR_HEIGHT = 18
+const TITLE_HEIGHT = 30
 
 export default {
   created () {
@@ -43,7 +51,8 @@ export default {
   data () {
     return {
       scrollY: -1,
-      currentIndex: 0
+      currentIndex: 0,
+      diff: -1
     }
   },
   props: {
@@ -57,6 +66,12 @@ export default {
       return this.data.map((group) => {
         return group.title.substr(0, 1)
       })
+    },
+    fixedTitle () {
+      if (this.scrollY > 0) {
+        return ''
+      }
+      return this.data[this.currentIndex] ? this.data[this.currentIndex].title : ''
     }
   },
   methods: {
@@ -102,20 +117,37 @@ export default {
     },
     scrollY (newY) {
       const listHeight = this.listHeight
-      for (let i = 0; i < listHeight.length; i++) {
+      // 当滚动到顶部时， newY>0
+      if (newY > 0) {
+        this.currentIndex = 0
+        return
+      }
+      // 滚动到中间部分时
+      for (let i = 0; i < listHeight.length - 1; i++) {
         let h1 = listHeight[i]
         let h2 = listHeight[i + 1]
-        if (!h2 || (-newY > h1 && -newY < h2)) {
+        if ((-newY >= h1 && -newY < h2)) {
           this.currentIndex = i
           console.log(this.currentIndex)
+          this.diff = h2 + newY
           return
         }
       }
-      this.currentIndex = 0
+      // 当滚动到底部，而且-newY大于最后一个元素上限
+      this.currentIndex = listHeight.length - 2
+    },
+    diff (newVal) {
+      let fixedTop = (newVal > 0 && newVal < TITLE_HEIGHT) ? newVal - TITLE_HEIGHT : 0
+      if (this.fixedTop === fixedTop) {
+        return
+      }
+      this.fixedTop = fixedTop
+      this.$refs.fixed.style.transform = `translate3d(0, ${fixedTop}px, 0)`
     }
   },
   components: {
-    Scroll
+    Scroll,
+    Loading
   }
 
 }
@@ -170,9 +202,9 @@ export default {
         font-size: $font-size-small
         &.current
           color: $color-theme
-      .list-fixed
+    .list-fixed
         position: absolute
-        top: 0
+        top: -2px
         left: 0
         width: 100%
         .fixed-title
@@ -185,4 +217,7 @@ export default {
       .loading-container
         position: absolute
         width: 100%
+        top: 50%
+        transform: translateY(-50%)
+
 </style>
