@@ -3,7 +3,7 @@ import Vuex from 'vuex'
 import state from './state'
 import * as actions from './actions'
 import * as getters from './getters'
-import * as mutations from './mutations'
+import mutations from './mutations'
 // 打印日志--凡是操作了mutations，就会记录下来
 import createLogger from 'vuex/dist/logger'
 
