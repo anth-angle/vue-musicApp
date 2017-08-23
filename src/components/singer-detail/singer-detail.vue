@@ -14,6 +14,7 @@ import MusicList from 'components/music-list/music-list'
 
 export default {
   created () {
+    console.log(this.bgImage)
     this._getDetails()
   },
   data () {
@@ -26,8 +27,8 @@ export default {
       return this.singer.name
     },
     bgImage () {
-      return this.singer.avater
-    }
+      return this.singer.avatar
+    },
     ...mapGetters([
       'singer'
     ])
