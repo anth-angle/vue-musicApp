@@ -1,4 +1,12 @@
+import {playModel} from 'common/js/config'
+
 const state = {
-  singer: {}
+  singer: {},
+  playing: false,
+  fullScreen: false,
+  playlist: [],
+  sequenceList: [],
+  model: playModel.sequence,
+  currentIndex: -1
 }
 export default state
