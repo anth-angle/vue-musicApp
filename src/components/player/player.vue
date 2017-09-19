@@ -32,13 +32,13 @@
               <i class="icon-sequence"></i>
             </div>
             <div class="icon i-left">
-              <i class="icon-prev"></i>
+              <i class="icon-prev" @click="prev"></i>
             </div>
             <div class="icon i-center">
               <i :class="playIcon" @click="togglePlaying"></i>
             </div>
             <div class="icon i-right">
-              <i class="icon-next"></i>
+              <i class="icon-next" @click="next"></i>
             </div>
             <div class="icon i-right">
               <i class="icon icon-not-favorite"></i>
@@ -63,7 +63,7 @@
         </div>
       </div>
     </transition>
-    <audio :src="currentSong.url" ref="audio"></audio>
+    <audio :src="currentSong.url" ref="audio" @canplay="ready" @error="error"></audio>
   </div>
 </template>
 
@@ -72,6 +72,11 @@
   import animations from 'create-keyframe-animation'
 
 export default {
+    data () {
+      return {
+        songReady: false // 歌曲是否可以播放
+      }
+    },
     computed: {
       // 控制play按钮
       playIcon () {
@@ -83,13 +88,15 @@ export default {
       },
       // 控制cd旋转
       cdClass () {
-        return this.playing ? 'play' : 'pause play'
+        return this.playing ? 'play' : 'play pause'
       },
+      // 获取状态
       ...mapGetters([
         'fullScreen',
         'playlist',
         'currentSong',
-        'playing'
+        'playing',
+        'currentIndex'
       ])
     },
     methods: {
@@ -134,18 +141,69 @@ export default {
         this.$refs.cdWrapper.style.transition = ''
         this.$refs.cdWrapper.style.transform = ''
       },
+      // 返回上一个页面
       back () {
         this.setFullScreen(false)
       },
+      // 点击歌曲列表，全屏播放
       open () {
         this.setFullScreen(true)
       },
+      // audio canplay事件 当准备好播放时，songReady设置为true
+      ready () {
+        this.songReady = true
+      },
+      // audio error事件 当播放发生错误时
+      error () {
+
+      },
+      // 提交状态
       ...mapMutations({
         setFullScreen: 'SET_FULL_SCREEN',
-        setPlayingState: 'SET_PLAYING_STATE'
+        setPlayingState: 'SET_PLAYING_STATE',
+        setCurrentIndex: 'SET_CURRENT_INDEX'
       }),
+      // 切换播放/暂停
       togglePlaying () {
+        console.log(this.songReady)
+        // 歌曲是否可以播放，如果不能，直接返回
+        if (!this.songReady) {
+          return
+        }
+        console.log('ready')
         this.setPlayingState(!this.playing)
+        // 设置songReady为true
+        this.songReady = false
+      },
+      // 上一曲
+      prev () {
+        if (!this.songReady) {
+          return
+        }
+        let index = this.currentIndex - 1
+        if (index === -1) {
+          index = this.playlist.length - 1
+        }
+        this.setCurrentIndex(index)
+        if (!this.playing) {
+          this.togglePlaying()
+        }
+        this.songReady = false
+      },
+      // 下一曲
+      next () {
+        if (!this.songReady) {
+          return
+        }
+        let index = this.currentIndex + 1
+        if (index === this.playlist.length) {
+          index = 0
+        }
+        this.setCurrentIndex(index)
+        if (!this.playing) {
+          this.togglePlaying()
+        }
+        this.songReady = false
       },
       _getPosAndScale () {
         const targetWidth = 40
@@ -180,7 +238,7 @@ export default {
 }
 </script>
 
-<style lang="stylus" scoped>
+<style scoped lang="stylus" rel="stylesheet/stylus">
   @import "~common/stylus/variable"
   @import "~common/stylus/mixin"
 
@@ -192,7 +250,7 @@ export default {
       top: 0
       bottom: 0
       z-index: 150
-      background-color: $color-background
+      background: $color-background
       .background
         position: absolute
         left: 0
@@ -203,10 +261,10 @@ export default {
         opacity: 0.6
         filter: blur(20px)
       .top
-        position relative
+        position: relative
         margin-bottom: 25px
         .back
-          position: absolute
+          position absolute
           top: 0
           left: 6px
           z-index: 50
@@ -258,7 +316,7 @@ export default {
               &.play
                 animation: rotate 20s linear infinite
               &.pause
-                animation-play-sate: paused
+                animation-play-state: paused
               .image
                 position: absolute
                 left: 0
@@ -266,6 +324,7 @@ export default {
                 width: 100%
                 height: 100%
                 border-radius: 50%
+
           .playing-lyric-wrapper
             width: 80%
             margin: 30px auto 0 auto
@@ -322,6 +381,7 @@ export default {
             color: $color-text
             font-size: $font-size-small
             flex: 0 0 30px
+            line-height: 30px
             width: 30px
             &.time-l
               text-align: left
@@ -355,7 +415,7 @@ export default {
         .top, .bottom
           transition: all 0.4s cubic-bezier(0.86, 0.18, 0.82, 1.32)
       &.normal-enter, &.normal-leave-to
-        opcity: 0
+        opacity: 0
         .top
           transform: translate3d(0, -100px, 0)
         .bottom
@@ -404,7 +464,7 @@ export default {
         flex: 0 0 30px
         width: 30px
         padding: 0 10px
-        .icon-play-mini, .icon-pause-mini, .icon-playlsit
+        .icon-play-mini, .icon-pause-mini, .icon-playlist
           font-size: 30px
           color: $color-theme-d
         .icon-mini
@@ -412,9 +472,10 @@ export default {
           position: absolute
           left: 0
           top: 0
+
   @keyframes rotate
     0%
-      transfrom: rotate(0)
+      transform: rotate(0)
     100%
       transform: rotate(360deg)
 </style>
