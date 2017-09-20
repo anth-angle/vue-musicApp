@@ -27,6 +27,12 @@
           </div>
         </div>
         <div class="bottom">
+          <div class="progress-wrapper">
+            <span class="time time-l">{{formatTime(currentTime)}}</span>
+            <div class="progress-bar-wrapper">
+            </div>
+            <span class="time time-r">{{formatTime(currentSong.duration)}}</span>
+          </div>
           <div class="operators">
             <div class="icon i-left">
               <i class="icon-sequence"></i>
@@ -57,13 +63,15 @@
           <h2 class="name" v-html="currentSong.name"></h2>
           <p class="desc" v-html="currentSong.singer"></p>
         </div>
-        <div :class="miniPlayIcon" @click.stop="togglePlaying"></div>
+        <div class="control">
+          <i :class="miniPlayIcon" @click.stop="togglePlaying"></i>
+        </div>
         <div class="control">
           <i class="icon-playlist"></i>
         </div>
       </div>
     </transition>
-    <audio :src="currentSong.url" ref="audio" @canplay="ready" @error="error"></audio>
+    <audio :src="currentSong.url" ref="audio" @canplay="ready" @error="error" @timeupdate="updateTime"></audio>
   </div>
 </template>
 
@@ -74,7 +82,8 @@
 export default {
     data () {
       return {
-        songReady: false // 歌曲是否可以播放
+        songReady: false, // 歌曲是否可以播放
+        currentTime: 0 // 歌曲播放的当前时间
       }
     },
     computed: {
@@ -157,6 +166,28 @@ export default {
       error () {
 
       },
+      // audio timeupdate事件 实时获取当前时间 参数 event对象
+      updateTime (e) {
+        this.currentTime = e.target.currentTime
+      },
+      // 格式化时间 将时间戳转化为 00:00
+      formatTime (interval) {
+        // 单竖杠 取整
+        interval = interval | 0
+        const minute = interval / 60 | 0
+        const second = this._pad(interval % 60)
+
+        return `${minute}:${second}`
+      },
+      // 当秒数小于10时，补零  num为数字，len为长度
+      _pad (num, len = 2) {
+        let n = num.toString().length
+        while (n < len) {
+          num = '0' + num
+          n++
+        }
+        return num
+      },
       // 提交状态
       ...mapMutations({
         setFullScreen: 'SET_FULL_SCREEN',
@@ -173,7 +204,7 @@ export default {
         console.log('ready')
         this.setPlayingState(!this.playing)
         // 设置songReady为true
-        this.songReady = false
+        // this.songReady = false
       },
       // 上一曲
       prev () {
@@ -223,13 +254,17 @@ export default {
       }
     },
     watch: {
+      // 观察currentSong的状态：点击列表，currentSong发生变化，播放歌曲
       currentSong () {
+        // 先获取到dom，再播放。否则会报错
         this.$nextTick(() => {
           this.$refs.audio.play()
         })
       },
+      // 观察playing的状态： 点击 play/pasue按钮，playing发生变化，播放/暂停歌曲
       playing (newPlaying) {
         const audio = this.$refs.audio
+        // 先获取到dom，再播放。否则会报错
         this.$nextTick(() => {
           newPlaying ? audio.play() : audio.pause()
         })
