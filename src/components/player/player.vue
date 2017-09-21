@@ -30,6 +30,7 @@
           <div class="progress-wrapper">
             <span class="time time-l">{{formatTime(currentTime)}}</span>
             <div class="progress-bar-wrapper">
+              <progress-bar :percent="percent"></progress-bar>
             </div>
             <span class="time time-r">{{formatTime(currentSong.duration)}}</span>
           </div>
@@ -78,6 +79,7 @@
 <script>
   import {mapGetters, mapMutations} from 'vuex'
   import animations from 'create-keyframe-animation'
+  import ProgressBar from 'base/progress-bar/progress-bar'
 
 export default {
     data () {
@@ -98,6 +100,9 @@ export default {
       // 控制cd旋转
       cdClass () {
         return this.playing ? 'play' : 'play pause'
+      },
+      percent () {
+        return this.currentTime / this.currentSong.duration
       },
       // 获取状态
       ...mapGetters([
@@ -269,6 +274,9 @@ export default {
           newPlaying ? audio.play() : audio.pause()
         })
       }
+    },
+    components: {
+      ProgressBar
     }
 }
 </script>
