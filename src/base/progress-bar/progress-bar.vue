@@ -21,10 +21,15 @@ export default {
     }
   },
   watch: {
+    // 观察比例变化
     percent (newPercent) {
+      // 如果比例发生了变化
       if (newPercent >= 0) {
+        // 获取整个进度条的长度（应该减去小圆圈的直径）
         const barWidth = this.$refs.progressBar.clientWidth - progressBtnWidth
+        // 根据比例算出进度条的长度
         const offsetWidth = newPercent * barWidth
+        // 设置长度
         this.$refs.progress.style.width = `${offsetWidth}px`
         this.$refs.progressBtn.style[`transform`] = `translate3d(${offsetWidth}px, 0, 0)`
       }

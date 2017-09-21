@@ -101,6 +101,7 @@ export default {
       cdClass () {
         return this.playing ? 'play' : 'play pause'
       },
+      // 实时获取当前时间与总时间的比例
       percent () {
         return this.currentTime / this.currentSong.duration
       },
