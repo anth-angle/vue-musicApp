@@ -30,7 +30,7 @@
           <div class="progress-wrapper">
             <span class="time time-l">{{formatTime(currentTime)}}</span>
             <div class="progress-bar-wrapper">
-              <progress-bar :percent="percent"></progress-bar>
+              <progress-bar :percent="percent" @percentChange="progressBarChange"></progress-bar>
             </div>
             <span class="time time-r">{{formatTime(currentSong.duration)}}</span>
           </div>
@@ -193,6 +193,14 @@ export default {
           n++
         }
         return num
+      },
+      // 监听touch
+      progressBarChange (percent) {
+        this.$refs.audio.currentTime = this.currentSong.duration * percent
+
+        if (!this.playing) {
+          this.togglePlaying()
+        }
       },
       // 提交状态
       ...mapMutations({
