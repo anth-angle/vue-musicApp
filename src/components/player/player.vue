@@ -35,8 +35,8 @@
             <span class="time time-r">{{formatTime(currentSong.duration)}}</span>
           </div>
           <div class="operators">
-            <div class="icon i-left">
-              <i class="icon-sequence"></i>
+            <div class="icon i-left" @click="changeModel">
+              <i :class="iconMode"></i>
             </div>
             <div class="icon i-left">
               <i class="icon-prev" @click="prev"></i>
@@ -65,7 +65,9 @@
           <p class="desc" v-html="currentSong.singer"></p>
         </div>
         <div class="control">
-          <i :class="miniPlayIcon" @click.stop="togglePlaying"></i>
+          <progress-circle :radius="32" :percent="percent">
+            <i class="icon-mini" :class="miniPlayIcon" @click.stop="togglePlaying"></i>
+          </progress-circle>
         </div>
         <div class="control">
           <i class="icon-playlist"></i>
@@ -80,6 +82,9 @@
   import {mapGetters, mapMutations} from 'vuex'
   import animations from 'create-keyframe-animation'
   import ProgressBar from 'base/progress-bar/progress-bar'
+  import ProgressCircle from 'base/progress-circle/progress-circle'
+  import {playModel} from 'common/js/config'
+  import {shuffle} from 'common/js/util'
 
 export default {
     data () {
@@ -105,13 +110,19 @@ export default {
       percent () {
         return this.currentTime / this.currentSong.duration
       },
+      // 控制播放模式
+      iconMode () {
+        return this.model === playModel.sequence ? 'icon-sequence' : this.model === playModel.loop ? 'icon-loop' : 'icon-random'
+      },
       // 获取状态
       ...mapGetters([
         'fullScreen',
         'playlist',
         'currentSong',
         'playing',
-        'currentIndex'
+        'currentIndex',
+        'model',
+        'sequenceList'
       ])
     },
     methods: {
@@ -206,7 +217,9 @@ export default {
       ...mapMutations({
         setFullScreen: 'SET_FULL_SCREEN',
         setPlayingState: 'SET_PLAYING_STATE',
-        setCurrentIndex: 'SET_CURRENT_INDEX'
+        setCurrentIndex: 'SET_CURRENT_INDEX',
+        setPlayModel: 'SET_PLAY_MODEL',
+        setPlayList: 'SET_PLAYLIST'
       }),
       // 切换播放/暂停
       togglePlaying () {
@@ -250,6 +263,27 @@ export default {
         }
         this.songReady = false
       },
+      // 改变播放模式
+      changeModel () {
+        const model = (this.model + 1) % 3
+        this.setPlayModel(model)
+        let list = null
+        if (model === playModel.random) {
+          list = shuffle(this.sequenceList)
+        } else {
+          list = this.sequenceList
+        }
+        this.resetCurrentIndex(list)
+        this.setPlayList(list)
+      },
+      // 当切换播放模式时，保证播放的一定是当前歌曲
+      resetCurrentIndex (list) {
+        // 获取当前歌曲的索引值
+        let index = list.findIndex((item) => {
+          return item.id === this.currentSong.id
+        })
+        this.setCurrentIndex(index)
+      },
       _getPosAndScale () {
         const targetWidth = 40
         const paddingLeft = 40
@@ -269,7 +303,11 @@ export default {
     },
     watch: {
       // 观察currentSong的状态：点击列表，currentSong发生变化，播放歌曲
-      currentSong () {
+      currentSong (newSong, oldSong) {
+        // 如果新旧值的id都相等，表示是前后都是同一首歌曲，此时触发的是播放模式，不需要播放，直接return即可
+        if (newSong.id === oldSong.id) {
+          return
+        }
         // 先获取到dom，再播放。否则会报错
         this.$nextTick(() => {
           this.$refs.audio.play()
@@ -285,7 +323,8 @@ export default {
       }
     },
     components: {
-      ProgressBar
+      ProgressBar,
+      ProgressCircle
     }
 }
 </script>
