@@ -57,8 +57,11 @@ export default {
     },
     // 点击进度条
     progressClick (e) {
-      // 获取到偏移的位置
-      this._offset(e.offsetX)
+      // 获取到偏移的位置 当点击progressBtn的时候，e.offsetX获取不对
+      // this._offset(e.offsetX)
+      const rect = this.$refs.progressBar.getBoundingClientRect()
+      const offsetWidth = e.pageX - rect.left
+      this._offset(offsetWidth)
       this._triggerPercent()
     },
     _triggerPercent () {

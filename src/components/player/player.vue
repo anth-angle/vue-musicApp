@@ -74,7 +74,7 @@
         </div>
       </div>
     </transition>
-    <audio :src="currentSong.url" ref="audio" @canplay="ready" @error="error" @timeupdate="updateTime"></audio>
+    <audio :src="currentSong.url" ref="audio" @canplay="ready" @error="error" @timeupdate="updateTime" @ended="end"></audio>
   </div>
 </template>
 
@@ -85,12 +85,14 @@
   import ProgressCircle from 'base/progress-circle/progress-circle'
   import {playModel} from 'common/js/config'
   import {shuffle} from 'common/js/util'
+  import Lyric from 'lyric-parser'
 
 export default {
     data () {
       return {
         songReady: false, // 歌曲是否可以播放
-        currentTime: 0 // 歌曲播放的当前时间
+        currentTime: 0, // 歌曲播放的当前时间
+        currentLyric: null // 默认当前歌词
       }
     },
     computed: {
@@ -263,6 +265,27 @@ export default {
         }
         this.songReady = false
       },
+      // 播放结束
+      end () {
+        if (this.model === playModel.loop) {
+          this.loop()
+        } else {
+          this.next()
+        }
+      },
+      // 获取歌词
+      getLyric () {
+        this.currentSong.getLyric().then((lyric) => {
+          this.currentLyric = new Lyric(lyric)
+          console.log(this.currentLyric)
+        })
+      },
+      // 单曲循环
+      loop () {
+        // 设置当前时间为0，重新开始
+        this.$refs.audio.currentTime = 0
+        this.$refs.audio.play()
+      },
       // 改变播放模式
       changeModel () {
         const model = (this.model + 1) % 3
@@ -311,6 +334,7 @@ export default {
         // 先获取到dom，再播放。否则会报错
         this.$nextTick(() => {
           this.$refs.audio.play()
+          this.getLyric()
         })
       },
       // 观察playing的状态： 点击 play/pasue按钮，playing发生变化，播放/暂停歌曲
