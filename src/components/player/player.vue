@@ -17,7 +17,11 @@
           <h1 class="title" v-html="currentSong.name"></h1>
           <h2 class="subtitle" v-html="currentSong.singer"></h2>
         </div>
-        <div class="middle">
+        <div class="middle"
+            @touchstart.prevent="middleTouchStart"
+            @touchmove.prevent="middleTouchMove"
+            @touchend.prevent="middleTouchEnd"
+        >
           <div class="middle-l">
             <div class="cd-wrapper" ref="cdWrapper">
               <div class="cd" :class="cdClass">
@@ -25,8 +29,19 @@
               </div>
             </div>
           </div>
+          <scroll class="middle-r" ref="lyricList" :data="currentLyric && currentLyric.lines">
+            <div class="lyric-wrapper">
+              <div v-if="currentLyric">
+                <p class="text" :class="{'current': currentLineNum === index}" v-for="(line , index) in currentLyric.lines" :key="index" ref="lyricLine">{{line.txt}}</p>
+              </div>
+            </div>
+          </scroll>
         </div>
         <div class="bottom">
+          <div class="dot-wrapper">
+            <span class="dot" :class="{'active': currentShow === 'cd'}"></span>
+            <span class="dot" :class="{'active': currentShow === 'lyric'}"></span>
+          </div>
           <div class="progress-wrapper">
             <span class="time time-l">{{formatTime(currentTime)}}</span>
             <div class="progress-bar-wrapper">
@@ -86,14 +101,20 @@
   import {playModel} from 'common/js/config'
   import {shuffle} from 'common/js/util'
   import Lyric from 'lyric-parser'
+  import Scroll from 'base/scroll/scroll'
 
 export default {
     data () {
       return {
         songReady: false, // 歌曲是否可以播放
         currentTime: 0, // 歌曲播放的当前时间
-        currentLyric: null // 默认当前歌词
+        currentLyric: null, // 默认当前歌词
+        currentLineNum: 0, // 当前歌词
+        currentShow: 'cd' // 默认当前展示的页面
       }
+    },
+    created () {
+      this.touch = {}
     },
     computed: {
       // 控制play按钮
@@ -276,9 +297,26 @@ export default {
       // 获取歌词
       getLyric () {
         this.currentSong.getLyric().then((lyric) => {
-          this.currentLyric = new Lyric(lyric)
+          this.currentLyric = new Lyric(lyric, this.handleLyric)
+          if (this.playing) {
+            this.currentLyric.play()
+          }
           console.log(this.currentLyric)
         })
+      },
+      // 控制歌词滚动
+      handleLyric ({lineNum, txt}) {
+        this.currentLineNum = lineNum
+        // 大于5行歌词时，自动滚动到地5行，及保持歌词在第5行的位置
+        if (lineNum > 5) {
+          // 获取第5行元素的位置
+          let scrollEl = this.$refs.lyricLine[lineNum - 5]
+          // 调用better-scroll的内置方法scrollToElement 第一个参数为要滚动到的该元素位置， 第二个参数为滚动的动画时间，单位ms
+          this.$refs.lyricList.scrollToElement(scrollEl, 1000)
+        } else {
+          // 当小于5行时，直接滚动到(0, 0)位置，及保持不动
+          this.$refs.lyricList.scrollTo(0, 0, 1000)
+        }
       },
       // 单曲循环
       loop () {
@@ -306,6 +344,41 @@ export default {
           return item.id === this.currentSong.id
         })
         this.setCurrentIndex(index)
+      },
+      middleTouchStart (e) {
+        this.touch.init = true
+        const touch = e.touches[0]
+        this.touch.startX = touch.pageX
+        this.touch.startY = touch.pageY
+      },
+      middleTouchMove (e) {
+        if (!this.touch.init) {
+          return
+        }
+        const touch = e.touches[0]
+        const deltaX = touch.pageX - this.touch.startX
+        const deltaY = touch.pageY - this.touch.startY
+        // 如果判定上下位移大于左右位移，直接return
+        if (Math.abs(deltaY) > Math.abs(deltaX)) {
+          return
+        }
+        // 判断当前页面，如果是cd页面，则设置left为0，没有偏移，如果是lyric页面，这认为left向左（反向）评平移了整个屏幕的宽度
+        const left = this.currentShow === 'cd' ? 0 : -window.innerWidth
+        // 获取lyric页面平移的宽度
+        // 1.假设当前页面是cd，手指向右滑动，则left=0，deltaX > 0 而-window.innerWidth < deltaX > 0
+        // 所以width最终取值为0， 即仍然保持cd页面
+        // 2.假设当前页面是cd，手指向左滑动，则left=0，deltaX > 0 而-window.innerWidth <= deltaX < 0
+        // 所以width最终取值为deltaX， 即lyric页面向左平移了deltaX的距离
+        // 3.假设当前页面是lyric，手指向左滑动，则left=-window.innerWidth，deltaX < 0 而-window.innerWidth <= deltaX < 0
+        // 所以width最终取值为deltaX + window.innerWidth， 即lyric页面向左平移了deltaX + window.innerWidth的距离
+        // 4.假设当前页面是lyric，手指向右滑动，则left=-window.innerWidth，deltaX > 0 而-window.innerWidth < deltaX > 0
+        // 所以width最终取值为deltaX + window.innerWidth， 即lyric页面向左平移了window.innerWidth - deltaX的距离
+        const width = Math.min(0, Math.max(-window.innerWidth, left + deltaX))
+        // $el可以获取到当前元素的父元素，一般用于组件。这里是获取scroll组件
+        this.$refs.lyricList.$el.style.transform = `translate3d(${width}px, 0, 0)`
+      },
+      middleTouchEnd (e) {
+
       },
       _getPosAndScale () {
         const targetWidth = 40
@@ -348,7 +421,8 @@ export default {
     },
     components: {
       ProgressBar,
-      ProgressCircle
+      ProgressCircle,
+      Scroll
     }
 }
 </script>
