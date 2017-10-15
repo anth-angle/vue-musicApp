@@ -30,10 +30,13 @@ import Scroll from 'base/scroll/scroll'
 import SongsList from 'base/songs-list/songs-list'
 import Loading from 'base/loading/loading'
 import {mapActions} from 'vuex'
+import {playlistMixin} from 'common/js/mixin'
 
 const RESERVED_HEIGHT = 40
 
 export default {
+  // 插入mixin
+  mixins: [playlistMixin],
   props: {
     songs: {
       type: Array,
@@ -68,6 +71,11 @@ export default {
     }
   },
   methods: {
+    handlePlaylist (playlist) {
+      const bottom = playlist.length > 0 ? '60px' : ''
+      this.$refs.list.$el.style.bottom = bottom
+      this.$refs.list.refresh()
+    },
     scroll (pos) {
       this.scrollY = pos.y
     },
