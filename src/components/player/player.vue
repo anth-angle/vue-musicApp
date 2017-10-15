@@ -22,11 +22,14 @@
             @touchmove.prevent="middleTouchMove"
             @touchend.prevent="middleTouchEnd"
         >
-          <div class="middle-l">
+          <div class="middle-l" ref="middleL">
             <div class="cd-wrapper" ref="cdWrapper">
               <div class="cd" :class="cdClass">
                 <img :src="currentSong.image" alt="" class="image">
               </div>
+            </div>
+            <div class="playing-lyric-wrapper">
+              <div class="playing-lyric">{{playingLyric}}</div>
             </div>
           </div>
           <scroll class="middle-r" ref="lyricList" :data="currentLyric && currentLyric.lines">
@@ -110,7 +113,8 @@ export default {
         currentTime: 0, // 歌曲播放的当前时间
         currentLyric: null, // 默认当前歌词
         currentLineNum: 0, // 当前歌词
-        currentShow: 'cd' // 默认当前展示的页面
+        currentShow: 'cd', // 默认当前展示的页面
+        playingLyric: '' // 当前播放的歌词
       }
     },
     created () {
@@ -230,10 +234,14 @@ export default {
       },
       // 监听touch
       progressBarChange (percent) {
-        this.$refs.audio.currentTime = this.currentSong.duration * percent
+        const currentTime = this.currentSong.duration * percent
+        this.$refs.audio.currentTime = currentTime
 
         if (!this.playing) {
           this.togglePlaying()
+        }
+        if (this.currentLyric) {
+          this.currentLyric.seek(currentTime * 1000)
         }
       },
       // 提交状态
@@ -253,21 +261,26 @@ export default {
         }
         console.log('ready')
         this.setPlayingState(!this.playing)
-        // 设置songReady为true
-        // this.songReady = false
+        if (this.currentLyric) {
+          this.currentLyric.togglePlay()
+        }
       },
       // 上一曲
       prev () {
         if (!this.songReady) {
           return
         }
-        let index = this.currentIndex - 1
-        if (index === -1) {
-          index = this.playlist.length - 1
-        }
-        this.setCurrentIndex(index)
-        if (!this.playing) {
-          this.togglePlaying()
+        if (this.playlist.length === 1) {
+          this.loop()
+        } else {
+          let index = this.currentIndex - 1
+          if (index === -1) {
+            index = this.playlist.length - 1
+          }
+          this.setCurrentIndex(index)
+          if (!this.playing) {
+            this.togglePlaying()
+          }
         }
         this.songReady = false
       },
@@ -276,13 +289,17 @@ export default {
         if (!this.songReady) {
           return
         }
-        let index = this.currentIndex + 1
-        if (index === this.playlist.length) {
-          index = 0
-        }
-        this.setCurrentIndex(index)
-        if (!this.playing) {
-          this.togglePlaying()
+        if (this.playlist.length === 1) {
+          this.loop()
+        } else {
+          let index = this.currentIndex + 1
+          if (index === this.playlist.length) {
+            index = 0
+          }
+          this.setCurrentIndex(index)
+          if (!this.playing) {
+            this.togglePlaying()
+          }
         }
         this.songReady = false
       },
@@ -302,6 +319,10 @@ export default {
             this.currentLyric.play()
           }
           console.log(this.currentLyric)
+        }).catch(() => {
+          this.currentLyric = null
+          this.playingLyric = ''
+          this.currentLineNum = 0
         })
       },
       // 控制歌词滚动
@@ -317,12 +338,17 @@ export default {
           // 当小于5行时，直接滚动到(0, 0)位置，及保持不动
           this.$refs.lyricList.scrollTo(0, 0, 1000)
         }
+        this.playingLyric = txt
       },
       // 单曲循环
       loop () {
         // 设置当前时间为0，重新开始
         this.$refs.audio.currentTime = 0
         this.$refs.audio.play()
+        //  设置歌词从头开始
+        if (this.currentLyric) {
+          this.currentLyric.seek(0)
+        }
       },
       // 改变播放模式
       changeModel () {
@@ -373,12 +399,43 @@ export default {
         // 所以width最终取值为deltaX + window.innerWidth， 即lyric页面向左平移了deltaX + window.innerWidth的距离
         // 4.假设当前页面是lyric，手指向右滑动，则left=-window.innerWidth，deltaX > 0 而-window.innerWidth < deltaX > 0
         // 所以width最终取值为deltaX + window.innerWidth， 即lyric页面向左平移了window.innerWidth - deltaX的距离
-        const width = Math.min(0, Math.max(-window.innerWidth, left + deltaX))
+        const offsetWidth = Math.min(0, Math.max(-window.innerWidth, left + deltaX))
+        this.touch.percent = Math.abs(offsetWidth / window.innerWidth)
         // $el可以获取到当前元素的父元素，一般用于组件。这里是获取scroll组件
-        this.$refs.lyricList.$el.style.transform = `translate3d(${width}px, 0, 0)`
+        this.$refs.lyricList.$el.style.transform = `translate3d(${offsetWidth}px, 0, 0)`
+        this.$refs.lyricList.$el.style.transitionDuration = 0
+        // 设置cd页面的透明度
+        this.$refs.middleL.style.opacity = 1 - this.touch.percent
+        this.$refs.middleL.style.transitionDuration = 0
       },
       middleTouchEnd (e) {
-
+        let offsetWidth, opacity
+        if (this.currentShow === 'cd') {
+          if (this.touch.percent > 0.1) {
+            offsetWidth = -window.innerWidth
+            this.currentShow = 'lyric'
+            opacity = 0
+          } else {
+            offsetWidth = 0
+            opacity = 1
+          }
+        } else {
+          if (this.touch.percent < 0.9) {
+            offsetWidth = 0
+            this.currentShow = 'cd'
+            opacity = 1
+          } else {
+            offsetWidth = -window.innerWidth
+            opacity = 0
+          }
+        }
+        const time = 300
+        // $el可以获取到当前元素的父元素，一般用于获取组件的dom。这里是获取scroll组件
+        this.$refs.lyricList.$el.style.transform = `translate3d(${offsetWidth}px, 0, 0)`
+        this.$refs.lyricList.$el.style.transitionDuration = `${time}ms`
+        this.$refs.middleL.style.opacity = opacity
+        this.$refs.middleL.style.transitionDuration = 0
+        this.$refs.middleL.style.transitionDuration = `${time}ms`
       },
       _getPosAndScale () {
         const targetWidth = 40
@@ -400,15 +457,19 @@ export default {
     watch: {
       // 观察currentSong的状态：点击列表，currentSong发生变化，播放歌曲
       currentSong (newSong, oldSong) {
+        // 切换歌曲，先把上个歌词停止掉
+        if (this.currentLyric) {
+          this.currentLyric.stop()
+        }
         // 如果新旧值的id都相等，表示是前后都是同一首歌曲，此时触发的是播放模式，不需要播放，直接return即可
         if (newSong.id === oldSong.id) {
           return
         }
         // 先获取到dom，再播放。否则会报错
-        this.$nextTick(() => {
+        setTimeout(() => {
           this.$refs.audio.play()
           this.getLyric()
-        })
+        }, 1000)
       },
       // 观察playing的状态： 点击 play/pasue按钮，playing发生变化，播放/暂停歌曲
       playing (newPlaying) {
